@@ -1,0 +1,86 @@
+name: mini-circus release
+
+on:
+  push:
+    tags:
+      - "mini-circus-v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-latest
+          - target: aarch64-unknown-linux-gnu
+            os: ubuntu-24.04-arm
+          # Both Darwin targets build on the same arm64 runner - GitHub's
+          # free-tier macOS runners are arm64-only now (Intel "large"
+          # runners are a paid feature), but Xcode's toolchain cross-links
+          # x86_64-apple-darwin from an arm64 host without extra setup.
+          - target: x86_64-apple-darwin
+            os: macos-14
+          - target: aarch64-apple-darwin
+            os: macos-14
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target }}
+
+      - name: Build
+        run: cargo build --release -p mini-circus --target ${{ matrix.target }}
+
+      - name: Package
+        run: |
+          set -euo pipefail
+          asset="mini-circus-${{ matrix.target }}"
+          staging="dist/staging"
+          mkdir -p "$staging" dist
+          cp "target/${{ matrix.target }}/release/mini-circus" "$staging/"
+          cp mini-circus/README.md "$staging/"
+          # Flat archive (binary at the tar root, no wrapping directory) -
+          # install.sh extracts and looks for ./mini-circus directly.
+          tar czf "dist/$asset.tar.gz" -C "$staging" mini-circus README.md
+          cd dist
+          if command -v sha256sum >/dev/null 2>&1; then
+            sha256sum "$asset.tar.gz" > "$asset.tar.gz.sha256"
+          else
+            shasum -a 256 "$asset.tar.gz" > "$asset.tar.gz.sha256"
+          fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mini-circus-${{ matrix.target }}
+          path: |
+            dist/*.tar.gz
+            dist/*.tar.gz.sha256
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Combine checksums
+        run: cat dist/*.tar.gz.sha256 > dist/SHA256SUMS
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/*.tar.gz
+            dist/SHA256SUMS
+          generate_release_notes: true

@@ -1,6 +1,9 @@
 [package]
 name = "mini-circus"
-version.workspace = true
+# Versioned and released independently of the main circus app (see
+# .github/workflows/mini-circus-release.yml and mini-circus-v* tags), so it
+# doesn't inherit the workspace version.
+version = "0.1.0"
 edition.workspace = true
 license.workspace = true
 

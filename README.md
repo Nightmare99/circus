@@ -55,25 +55,12 @@ statement, so concurrent writers can't corrupt or double-claim state. It shares
 no orgs, no users, no RBAC, no web server. Just a SQLite file and a CLI.
 
 ```bash
-cargo run -p mini-circus -- board create backlog
-cargo run -p mini-circus -- task create --board backlog "Write release notes"
-cargo run -p mini-circus -- task list --board backlog
-cargo run -p mini-circus -- task claim --board backlog worker-1
-cargo run -p mini-circus -- --json task list --board backlog
+curl -fsSL https://raw.githubusercontent.com/Nightmare99/circus/main/mini-circus/install.sh | sh
 ```
 
-Or build it once and drop `mini-circus` on your `PATH`:
-
-```bash
-cargo build --release -p mini-circus
-```
-
-By default the board lives at `./.mini-circus/board.db` (created on first use,
-scoped to whatever directory you run it from — override with `--db <path>` or
-`$MINI_CIRCUS_DB`). Every subcommand accepts `--json` for machine-readable
-output. `task claim` atomically hands out the oldest unassigned, pending task on
-a board — the primitive multiple concurrent callers use to pull distinct work
-off the same board without collisions (see `mini-circus task claim --help`).
+**[mini-circus/README.md](mini-circus/README.md)** has the full picture:
+installer options, every command, JSON output schemas, storage/concurrency
+details, and how to build from source or cut a release.
 
 ## Status
 
