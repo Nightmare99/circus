@@ -1,9 +1,11 @@
 [workspace]
 resolver = "2"
 members = [
+    "common",
     "backend/crates/domain",
     "backend/crates/db",
     "backend/crates/api",
+    "mini-circus",
 ]
 
 [workspace.package]
@@ -21,8 +23,10 @@ thiserror = "2"
 anyhow = "1"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-sqlx = { version = "0.8", features = ["runtime-tokio", "tls-rustls", "postgres", "uuid", "chrono", "migrate"] }
+sqlx = { version = "0.8", features = ["runtime-tokio", "tls-rustls", "postgres", "sqlite", "uuid", "chrono", "migrate"] }
+clap = { version = "4", features = ["derive"] }
 
+common = { path = "common" }
 domain = { path = "backend/crates/domain" }
 db = { path = "backend/crates/db" }
 

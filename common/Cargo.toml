@@ -1,13 +1,9 @@
 [package]
-name = "domain"
+name = "common"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 
 [dependencies]
-common.workspace = true
 serde.workspace = true
-uuid.workspace = true
-chrono.workspace = true
-thiserror.workspace = true
 sqlx.workspace = true

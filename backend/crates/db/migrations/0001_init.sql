@@ -1,10 +1,14 @@
 -- Enums
+--
+-- task_status/task_priority are intentionally plain TEXT with a CHECK
+-- constraint rather than native Postgres enum types: the Rust types for both
+-- columns live in the `common` crate and are shared with mini-circus (which
+-- runs on SQLite, with no equivalent to native Postgres enums), so both
+-- backends bind them as text.
 
 CREATE TYPE instance_role AS ENUM ('user', 'superadmin');
 CREATE TYPE org_role AS ENUM ('member', 'admin', 'owner');
 CREATE TYPE project_role AS ENUM ('viewer', 'contributor', 'lead');
-CREATE TYPE task_status AS ENUM ('pending', 'in_progress', 'blocked', 'completed');
-CREATE TYPE task_priority AS ENUM ('low', 'medium', 'high', 'urgent');
 
 -- Identity
 
@@ -99,8 +103,10 @@ CREATE TABLE tasks (
     task_number     BIGINT NOT NULL,
     title           TEXT NOT NULL,
     description     TEXT,
-    status          task_status NOT NULL DEFAULT 'pending',
-    priority        task_priority NOT NULL DEFAULT 'medium',
+    status          TEXT NOT NULL DEFAULT 'pending'
+                        CHECK (status IN ('pending', 'in_progress', 'blocked', 'completed')),
+    priority        TEXT NOT NULL DEFAULT 'medium'
+                        CHECK (priority IN ('low', 'medium', 'high', 'urgent')),
     assignee_id     UUID REFERENCES users(id) ON DELETE SET NULL,
     reporter_id     UUID NOT NULL REFERENCES users(id),
     due_date        DATE,

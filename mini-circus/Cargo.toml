@@ -1,0 +1,20 @@
+[package]
+name = "mini-circus"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "mini-circus"
+path = "src/main.rs"
+
+[dependencies]
+common.workspace = true
+tokio.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+chrono.workspace = true
+sqlx.workspace = true
+anyhow.workspace = true
+thiserror.workspace = true
+clap.workspace = true

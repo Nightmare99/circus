@@ -1,21 +1,5 @@
-use serde::{Deserialize, Serialize};
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, sqlx::Type)]
-#[sqlx(type_name = "task_status", rename_all = "snake_case")]
-#[serde(rename_all = "snake_case")]
-pub enum TaskStatus {
-    Pending,
-    InProgress,
-    Blocked,
-    Completed,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, sqlx::Type)]
-#[sqlx(type_name = "task_priority", rename_all = "snake_case")]
-#[serde(rename_all = "snake_case")]
-pub enum Priority {
-    Low,
-    Medium,
-    High,
-    Urgent,
-}
+//! `TaskStatus`/`Priority` live in the `common` crate, shared with
+//! mini-circus. Re-exported here so existing `domain::TaskStatus` /
+//! `domain::Priority` call sites throughout the backend don't need to
+//! change.
+pub use common::{Priority, TaskStatus};

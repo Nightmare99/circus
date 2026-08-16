@@ -10,3 +10,5 @@ frontend/dist/
 *.log
 
 helm/**/charts/*.tgz
+
+.mini-circus/
