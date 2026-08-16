@@ -61,6 +61,7 @@ CREATE TABLE projects (
     key             TEXT NOT NULL,
     name            TEXT NOT NULL,
     description     TEXT,
+    next_task_number BIGINT NOT NULL DEFAULT 1,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
     UNIQUE (org_id, key)

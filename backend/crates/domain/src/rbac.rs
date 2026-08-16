@@ -48,9 +48,11 @@ pub enum Action {
     DeleteProject,
     // Project-level
     ViewBoard,
+    CommentOnTask,
     EditTask,
     DeleteTask,
     ManageProjectMembers,
+    UploadAttachment,
 }
 
 impl OrgRole {
@@ -66,9 +68,11 @@ impl OrgRole {
 impl ProjectRole {
     pub fn can(self, action: Action) -> bool {
         match action {
-            Action::ViewBoard => true, // any project member, including Viewer
-            Action::EditTask => self >= ProjectRole::Contributor,
-            Action::DeleteTask | Action::ManageProjectMembers => self >= ProjectRole::Lead,
+            Action::ViewBoard | Action::CommentOnTask => true, // any project member, including Viewer
+            Action::EditTask | Action::UploadAttachment => self >= ProjectRole::Contributor,
+            Action::DeleteTask | Action::ManageProjectMembers | Action::DeleteProject => {
+                self >= ProjectRole::Lead
+            }
             _ => false, // org-level actions are decided by OrgRole
         }
     }
