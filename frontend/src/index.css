@@ -1,1 +1,73 @@
 @import "tailwindcss";
+
+@theme {
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+
+  --color-bg: #0b0c0f;
+  --color-surface: #131519;
+  --color-surface-2: #1b1e24;
+  --color-surface-3: #23272f;
+  --color-border: #262a31;
+  --color-border-strong: #33383f;
+  --color-text: #e7e6e2;
+  --color-text-dim: #9b9a95;
+  --color-text-faint: #6b6a66;
+
+  --color-accent: #f5a623;
+  --color-accent-strong: #ffb84d;
+  --color-accent-dim: #7a5518;
+
+  --color-status-pending: #8b90a0;
+  --color-status-in_progress: #4c8dff;
+  --color-status-blocked: #f0555a;
+  --color-status-completed: #34c77b;
+
+  --color-priority-low: #6b7280;
+  --color-priority-medium: #4c8dff;
+  --color-priority-high: #f5a623;
+  --color-priority-urgent: #f0555a;
+}
+
+:root {
+  color-scheme: dark;
+}
+
+body {
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+}
+
+* {
+  border-color: var(--color-border);
+}
+
+::selection {
+  background: var(--color-accent-dim);
+  color: var(--color-text);
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.marquee-underline {
+  height: 2px;
+  background: linear-gradient(
+    90deg,
+    var(--color-accent) 0%,
+    color-mix(in srgb, var(--color-accent) 40%, transparent) 45%,
+    transparent 75%
+  );
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+  }
+}
