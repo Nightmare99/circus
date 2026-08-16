@@ -103,8 +103,10 @@ pub fn router(state: AppState, static_dir: Option<String>) -> Router {
         .with_state(state);
 
     if let Some(dir) = static_dir {
+        // `.fallback()` (not `.not_found_service()`, which forces 404) so client-side
+        // routes like /orgs/{id} serve index.html with a normal 200.
         let index = format!("{dir}/index.html");
-        let serve_dir = ServeDir::new(dir).not_found_service(ServeFile::new(index));
+        let serve_dir = ServeDir::new(dir).fallback(ServeFile::new(index));
         app = app.fallback_service(serve_dir);
     }
 
