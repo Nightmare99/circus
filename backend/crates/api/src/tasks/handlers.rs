@@ -84,6 +84,7 @@ pub async fn create_task(
         },
     )
     .await?;
+    state.notify_project(scope.project_id);
     Ok(Json(task))
 }
 
@@ -182,6 +183,7 @@ pub async fn update_task(
     )
     .await?
     .ok_or(ApiError::NotFound)?;
+    state.notify_project(scope.project_id);
     Ok(Json(task))
 }
 
@@ -196,6 +198,7 @@ pub async fn delete_task(
     if affected == 0 {
         return Err(ApiError::NotFound);
     }
+    state.notify_project(scope.project_id);
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -220,6 +223,7 @@ pub async fn set_task_tags(
         ));
     }
     db::tags::set_task_tags(&state.pool, scope.task_id, &req.tag_ids).await?;
+    state.notify_project(scope.project_id);
     Ok(Json(
         db::tags::list_for_task(&state.pool, scope.task_id).await?,
     ))

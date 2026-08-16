@@ -36,6 +36,7 @@ pub async fn create_comment(
         return Err(ApiError::BadRequest("comment body is required".into()));
     }
     let comment = db::comments::create(&state.pool, scope.task_id, scope.user_id, body).await?;
+    state.notify_project(scope.project_id);
     Ok(Json(comment))
 }
 
@@ -78,6 +79,7 @@ pub async fn update_comment(
     let comment = db::comments::update_body(&state.pool, comment_id, body)
         .await?
         .ok_or(ApiError::NotFound)?;
+    state.notify_project(scope.project_id);
     Ok(Json(comment))
 }
 
@@ -88,5 +90,6 @@ pub async fn delete_comment(
 ) -> Result<StatusCode, ApiError> {
     require_author_or_lead(&state, &scope, comment_id).await?;
     db::comments::delete(&state.pool, comment_id).await?;
+    state.notify_project(scope.project_id);
     Ok(StatusCode::NO_CONTENT)
 }

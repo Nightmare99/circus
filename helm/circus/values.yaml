@@ -1,0 +1,134 @@
+replicaCount: 1
+
+image:
+  repository: ghcr.io/circus-app/circus
+  tag: ""  # defaults to .Chart.AppVersion
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+podAnnotations: {}
+
+podSecurityContext:
+  fsGroup: 1000
+
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: false
+  capabilities:
+    drop: ["ALL"]
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 8080
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  # e.g. cert-manager.io/cluster-issuer: letsencrypt-prod
+  hosts:
+    - host: circus.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+  # - secretName: circus-tls
+  #   hosts:
+  #     - circus.example.com
+
+resources:
+  {}
+  # requests:
+  #   cpu: 100m
+  #   memory: 128Mi
+  # limits:
+  #   memory: 256Mi
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 80
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+# Liveness/readiness probes hit the app's own health endpoints.
+probes:
+  liveness:
+    path: /healthz
+    initialDelaySeconds: 5
+    periodSeconds: 10
+  readiness:
+    path: /readyz
+    initialDelaySeconds: 5
+    periodSeconds: 10
+
+config:
+  accessTokenTtlMinutes: 15
+  refreshTokenTtlDays: 7
+  maxUploadMb: 25
+  # Must be true behind TLS (the default assumption for a real deployment) so
+  # the refresh-token cookie is only ever sent over HTTPS.
+  cookieSecure: true
+  logLevel: info
+
+# JWT signing secret. Required. Prefer existingSecret in any real deployment
+# rather than putting the value in values.yaml / your values file in git.
+jwt:
+  secret: ""
+  existingSecret: ""
+  existingSecretKey: "jwt-secret"
+
+# The instance's first superadmin is created from these credentials on first
+# boot (no-op once any superadmin already exists) - see backend/crates/api's
+# bootstrap_admin. This is the only way to get an initial superadmin, so set
+# it for at least the first install.
+bootstrapAdmin:
+  email: ""
+  password: ""
+  name: "Admin"
+  existingSecret: ""
+  existingSecretEmailKey: "email"
+  existingSecretPasswordKey: "password"
+
+# Attachments are stored on a PVC mounted into the pod (local filesystem
+# storage - see backend/crates/api/src/storage.rs). Swap for an S3-backed
+# storage implementation later if you need multi-replica attachment sharing;
+# for a single replica a PVC is simplest.
+persistence:
+  enabled: true
+  storageClassName: ""
+  accessMode: ReadWriteOnce
+  size: 5Gi
+  existingClaim: ""
+
+# Set postgresql.enabled=false and fill in externalDatabase.* to bring your
+# own Postgres instead of the bundled Bitnami subchart.
+postgresql:
+  enabled: true
+  auth:
+    username: circus
+    password: ""
+    database: circus
+  primary:
+    persistence:
+      size: 8Gi
+
+externalDatabase:
+  # Full postgres:// URL. Prefer existingSecret over the plain value.
+  url: ""
+  existingSecret: ""
+  existingSecretKey: "database-url"

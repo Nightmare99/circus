@@ -1,0 +1,18 @@
+apiVersion: v2
+name: circus
+description: A simple, self-hostable issue tracker — projects, boards, and tasks.
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+home: https://github.com/circus/circus
+sources:
+  - https://github.com/circus/circus
+keywords:
+  - issue-tracker
+  - project-management
+  - kanban
+dependencies:
+  - name: postgresql
+    version: "16.x.x"
+    repository: "https://charts.bitnami.com/bitnami"
+    condition: postgresql.enabled

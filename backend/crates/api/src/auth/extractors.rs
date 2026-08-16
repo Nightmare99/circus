@@ -1,10 +1,11 @@
 use super::jwt::{self, TokenType};
 use crate::{error::ApiError, state::AppState};
 use axum::{
-    extract::{FromRequestParts, Path},
+    extract::{FromRequestParts, Path, Query},
     http::{header, request::Parts},
 };
 use domain::{InstanceRole, OrgRole, ProjectRole};
+use serde::Deserialize;
 use std::collections::HashMap;
 use uuid::Uuid;
 
@@ -22,6 +23,11 @@ impl AuthUser {
     }
 }
 
+#[derive(Deserialize)]
+struct TokenQuery {
+    token: Option<String>,
+}
+
 impl FromRequestParts<AppState> for AuthUser {
     type Rejection = ApiError;
 
@@ -29,16 +35,28 @@ impl FromRequestParts<AppState> for AuthUser {
         parts: &mut Parts,
         state: &AppState,
     ) -> Result<Self, Self::Rejection> {
-        let header = parts
+        let header_token = parts
             .headers
             .get(header::AUTHORIZATION)
             .and_then(|v| v.to_str().ok())
-            .ok_or(ApiError::Unauthorized)?;
-        let token = header
-            .strip_prefix("Bearer ")
-            .ok_or(ApiError::Unauthorized)?;
+            .and_then(|v| v.strip_prefix("Bearer "))
+            .map(str::to_string);
+
+        // Browsers can't set custom headers on a WebSocket handshake, so the
+        // board's live-update socket authenticates via a `?token=` query
+        // param instead. Only used as a fallback when no header is present,
+        // so ordinary REST calls are unaffected.
+        let token = match header_token {
+            Some(t) => t,
+            None => {
+                let Query(q) = Query::<TokenQuery>::from_request_parts(parts, state)
+                    .await
+                    .map_err(|_| ApiError::Unauthorized)?;
+                q.token.ok_or(ApiError::Unauthorized)?
+            }
+        };
         let claims =
-            jwt::decode_token(token, &state.jwt_secret).map_err(|_| ApiError::Unauthorized)?;
+            jwt::decode_token(&token, &state.jwt_secret).map_err(|_| ApiError::Unauthorized)?;
         if claims.typ != TokenType::Access {
             return Err(ApiError::Unauthorized);
         }

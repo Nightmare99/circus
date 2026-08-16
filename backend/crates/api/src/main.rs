@@ -2,6 +2,7 @@ mod admin;
 mod auth;
 mod config;
 mod error;
+mod events;
 mod orgs;
 mod projects;
 mod routes;
@@ -10,6 +11,7 @@ mod state;
 mod storage;
 mod tasks;
 mod util;
+mod ws;
 
 use config::Config;
 use domain::InstanceRole;
@@ -37,6 +39,8 @@ async fn main() -> anyhow::Result<()> {
 
     bootstrap_admin(&pool, &config).await?;
 
+    let (events_tx, _) = tokio::sync::broadcast::channel(1024);
+
     let state = AppState(Arc::new(AppStateInner {
         pool,
         jwt_secret: config.jwt_secret.clone(),
@@ -45,6 +49,7 @@ async fn main() -> anyhow::Result<()> {
         storage,
         max_upload_mb: config.max_upload_mb,
         cookie_secure: config.cookie_secure,
+        events: events_tx,
     }));
 
     let app = routes::router(state, config.static_dir.clone())

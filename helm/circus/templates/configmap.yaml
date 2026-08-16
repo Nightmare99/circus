@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "circus.fullname" . }}
+  labels:
+    {{- include "circus.labels" . | nindent 4 }}
+data:
+  BIND_ADDR: "0.0.0.0:8080"
+  ACCESS_TOKEN_TTL_MINUTES: {{ .Values.config.accessTokenTtlMinutes | quote }}
+  REFRESH_TOKEN_TTL_DAYS: {{ .Values.config.refreshTokenTtlDays | quote }}
+  MAX_UPLOAD_MB: {{ .Values.config.maxUploadMb | quote }}
+  COOKIE_SECURE: {{ .Values.config.cookieSecure | quote }}
+  RUST_LOG: {{ .Values.config.logLevel | quote }}
+  STORAGE_DIR: /app/data/attachments
+  STATIC_DIR: /app/static
+  BOOTSTRAP_ADMIN_NAME: {{ .Values.bootstrapAdmin.name | quote }}

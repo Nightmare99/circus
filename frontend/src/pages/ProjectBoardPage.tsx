@@ -14,6 +14,7 @@ import {
 } from "@dnd-kit/core";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
+import { useProjectLiveUpdates } from "../lib/useProjectLiveUpdates";
 import { STATUS_LABEL, TASK_STATUSES, type Task, type TaskStatus } from "../lib/types";
 import { Avatar, Button, Input, PriorityDot, Select, StatusDot } from "../components/ui";
 import TaskDrawer from "../components/TaskDrawer";
@@ -24,6 +25,7 @@ export default function ProjectBoardPage() {
   const { orgId, projectId } = useParams();
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  useProjectLiveUpdates(projectId);
 
   const [search, setSearch] = useState("");
   const [assigneeFilter, setAssigneeFilter] = useState("");

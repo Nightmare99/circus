@@ -1,0 +1,51 @@
+Circus has been deployed.
+
+1. Get the application URL:
+
+{{- if .Values.ingress.enabled }}
+{{- range .Values.ingress.hosts }}
+  http{{ if $.Values.ingress.tls }}s{{ end }}://{{ .host }}
+{{- end }}
+{{- else if contains "NodePort" .Values.service.type }}
+  export NODE_PORT=$(kubectl get --namespace {{ .Release.Namespace }} -o jsonpath="{.spec.ports[0].nodePort}" services {{ include "circus.fullname" . }})
+  export NODE_IP=$(kubectl get nodes --namespace {{ .Release.Namespace }} -o jsonpath="{.items[0].status.addresses[0].address}")
+  echo http://$NODE_IP:$NODE_PORT
+{{- else if contains "LoadBalancer" .Values.service.type }}
+  NOTE: it may take a few minutes for the LoadBalancer IP to be available.
+  export SERVICE_IP=$(kubectl get svc --namespace {{ .Release.Namespace }} {{ include "circus.fullname" . }} -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+  echo http://$SERVICE_IP:{{ .Values.service.port }}
+{{- else }}
+  kubectl port-forward --namespace {{ .Release.Namespace }} svc/{{ include "circus.fullname" . }} 8080:{{ .Values.service.port }}
+  echo http://localhost:8080
+{{- end }}
+
+2. Sign in as the instance superadmin.
+{{- if or .Values.bootstrapAdmin.email .Values.bootstrapAdmin.existingSecret }}
+   The first superadmin account was created on first boot from
+   `bootstrapAdmin.email` / `bootstrapAdmin.password`. This only happens
+   once — it's a no-op on every later upgrade once a superadmin exists.
+{{- else }}
+   WARNING: bootstrapAdmin.email/password (or bootstrapAdmin.existingSecret)
+   was not set, so no superadmin account exists yet. Set it and run
+   `helm upgrade` to create one — it's currently the only way to get an
+   instance admin. Register a normal account in the meantime; you can
+   promote it to superadmin once bootstrapAdmin is configured.
+{{- end }}
+
+3. Database:
+{{- if .Values.postgresql.enabled }}
+   Using the bundled PostgreSQL subchart ({{ include "circus.postgresqlFullname" . }}).
+   Schema migrations run automatically on pod startup.
+{{- else }}
+   Using an external database (postgresql.enabled=false). Make sure
+   externalDatabase.url (or externalDatabase.existingSecret) points at a
+   reachable Postgres instance — schema migrations run automatically on
+   pod startup.
+{{- end }}
+
+4. Attachments are stored on {{ if .Values.persistence.enabled }}a PersistentVolumeClaim{{ else }}an ephemeral emptyDir — set persistence.enabled=true before storing real data{{ end }}.
+{{- if and .Values.persistence.enabled (gt (.Values.replicaCount | int) 1) (not .Values.autoscaling.enabled) }}
+   WARNING: replicaCount > 1 with a ReadWriteOnce PVC will only schedule
+   correctly if every pod lands on the same node, or your storage class
+   supports ReadWriteMany. Single-replica is the supported default.
+{{- end }}

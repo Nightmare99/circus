@@ -81,6 +81,7 @@ pub async fn upload_attachment(
         },
     )
     .await?;
+    state.notify_project(scope.project_id);
     Ok(Json(attachment))
 }
 
@@ -134,5 +135,6 @@ pub async fn delete_attachment(
     }
     db::attachments::delete(&state.pool, attachment_id).await?;
     let _ = state.storage.delete(&attachment.storage_key).await;
+    state.notify_project(scope.project_id);
     Ok(StatusCode::NO_CONTENT)
 }

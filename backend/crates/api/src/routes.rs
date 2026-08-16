@@ -1,4 +1,4 @@
-use crate::{admin, auth, orgs, projects, state::AppState, tasks};
+use crate::{admin, auth, orgs, projects, state::AppState, tasks, ws};
 use axum::{
     extract::{DefaultBodyLimit, State},
     http::StatusCode,
@@ -64,6 +64,7 @@ pub fn router(state: AppState, static_dir: Option<String>) -> Router {
             "/projects/{project_id}/tasks",
             get(tasks::handlers::list_tasks).post(tasks::handlers::create_task),
         )
+        .route("/projects/{project_id}/ws", get(ws::project_ws))
         .route(
             "/tasks/{task_id}",
             get(tasks::handlers::get_task)
