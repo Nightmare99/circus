@@ -109,6 +109,10 @@ jobs:
       - name: Package and push chart
         if: github.event_name != 'pull_request'
         run: |
+          # OCI repository paths must be lowercase; github.repository_owner
+          # preserves the account's actual casing (e.g. "Nightmare99"), which
+          # GHCR rejects outright.
+          OWNER_LC=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
           echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ghcr.io -u ${{ github.actor }} --password-stdin
           helm package helm/circus
-          helm push circus-*.tgz oci://ghcr.io/${{ github.repository_owner }}/charts
+          helm push circus-*.tgz "oci://ghcr.io/${OWNER_LC}/charts"
