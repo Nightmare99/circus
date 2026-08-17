@@ -1,26 +1,23 @@
 #!/bin/sh
-# Installs the mini-circus Claude Code skill into the CURRENT project.
+# Installs the mini-circus skill into every <dotfolder>/skills/ directory
+# found in the current working directory - .claude/skills, .codex/skills,
+# or any other tool following the same "dotfolder holding a skills/
+# subfolder" convention - not just Claude Code specifically. Falls back to
+# creating .claude/skills/ if none exist yet.
 #
 #   curl -fsSL https://raw.githubusercontent.com/Nightmare99/circus/main/mini-circus/install-skill.sh | sh
 #
-# Detects (or creates) a .claude/skills/ directory in the working directory
-# you run this from, and downloads SKILL.md + reference.md into
-# .claude/skills/mini-circus/ so Claude Code picks it up in that project.
 # This only installs the skill (agent instructions) - it does not install
 # the mini-circus binary itself; see mini-circus/install.sh for that.
 #
 # Env vars:
 #   MINI_CIRCUS_SKILL_REF  git ref to install from (default: main)
-#   MINI_CIRCUS_SKILL_DIR  target skills directory (default: ./.claude/skills)
+#   MINI_CIRCUS_SKILL_DIR  force a specific target skills directory
+#                          (e.g. .claude/skills), skipping the scan
 set -eu
 
 REPO="Nightmare99/circus"
 REF="${MINI_CIRCUS_SKILL_REF:-main}"
-SKILLS_DIR="${MINI_CIRCUS_SKILL_DIR:-.claude/skills}"
-TARGET_DIR="$SKILLS_DIR/mini-circus"
-# Source of truth lives at mini-circus/skill/ in the repo (not under .claude/
-# there - that directory is this repo's own, unrelated to what gets
-# installed elsewhere). Same Claude Skill format either way.
 RAW_BASE="https://raw.githubusercontent.com/$REPO/$REF/mini-circus/skill"
 
 say() { printf '%s\n' "$*"; }
@@ -35,38 +32,54 @@ need_cmd() {
 need_cmd curl
 need_cmd mkdir
 
-# "Detect" the skills folder: report what's already there before touching
-# anything, since that's the whole point of running this from an arbitrary
-# project directory rather than a fixed location.
-if [ -d "$SKILLS_DIR" ]; then
-    say "Found existing skills directory: $(pwd)/$SKILLS_DIR"
-else
-    say "No $SKILLS_DIR in $(pwd) yet - creating it."
-fi
-
-ALREADY_INSTALLED=false
-[ -f "$TARGET_DIR/SKILL.md" ] && ALREADY_INSTALLED=true
-
-mkdir -p "$TARGET_DIR"
-
 fetch() {
-    # $1 = filename relative to the skill's own directory in the repo
-    if ! curl -fsSL "$RAW_BASE/$1" -o "$TARGET_DIR/$1"; then
-        err "failed to download $1 from $RAW_BASE/$1"
+    # $1 = target skill dir (e.g. .claude/skills/mini-circus), $2 = filename
+    if ! curl -fsSL "$RAW_BASE/$2" -o "$1/$2"; then
+        err "failed to download $2 from $RAW_BASE/$2"
     fi
 }
 
-fetch "SKILL.md"
-fetch "reference.md"
+# $1 = a "skills" directory to install into (e.g. .claude/skills)
+install_into() {
+    skills_dir="$1"
+    target_dir="$skills_dir/mini-circus"
+    already=false
+    [ -f "$target_dir/SKILL.md" ] && already=true
 
-if [ "$ALREADY_INSTALLED" = true ]; then
-    say "Updated mini-circus skill in $TARGET_DIR"
+    mkdir -p "$target_dir"
+    fetch "$target_dir" "SKILL.md"
+    fetch "$target_dir" "reference.md"
+
+    if [ "$already" = true ]; then
+        say "Updated mini-circus skill in $target_dir"
+    else
+        say "Installed mini-circus skill to $target_dir"
+    fi
+}
+
+if [ -n "${MINI_CIRCUS_SKILL_DIR:-}" ]; then
+    install_into "$MINI_CIRCUS_SKILL_DIR"
 else
-    say "Installed mini-circus skill to $TARGET_DIR"
+    found_any=false
+    for entry in .*/; do
+        if [ "$entry" = "./" ] || [ "$entry" = "../" ]; then
+            continue
+        fi
+        if [ -d "${entry}skills" ]; then
+            found_any=true
+            say "Found $(pwd)/${entry}skills"
+            install_into "${entry}skills"
+        fi
+    done
+
+    if [ "$found_any" = false ]; then
+        say "No existing <dotfolder>/skills directory in $(pwd) - defaulting to .claude/skills"
+        install_into ".claude/skills"
+    fi
 fi
 
 say ""
-say "Claude Code sessions started in this project will pick it up automatically."
+say "Any tool that reads skills from the directory/directories above will pick this up in this project."
 
 if ! command -v mini-circus >/dev/null 2>&1; then
     say ""
