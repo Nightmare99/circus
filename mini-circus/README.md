@@ -57,6 +57,33 @@ cargo build --release -p mini-circus
 # binary at target/release/mini-circus
 ```
 
+## Claude Code skill
+
+A [Claude Code skill](https://code.claude.com/docs/en/skills.md) for
+mini-circus lives at [`skill/`](skill/) in this directory — instructions
+that teach an agent when and how to use the CLI (creating boards, working
+`--json`, using `task claim` instead of racing a plain assign). It's a
+standalone, portable pair of files (`SKILL.md` + `reference.md`) written to
+the generic Claude Skill format, not something specific to this repo.
+
+To add it to a project so Claude Code picks it up there:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Nightmare99/circus/main/mini-circus/install-skill.sh | sh
+```
+
+Run from the root of whatever project you want it in. This detects (or
+creates) a `.claude/skills/` directory in your current working directory and
+installs into `.claude/skills/mini-circus/` there — safe to re-run any time
+to pick up updates, and safe alongside any other skills already in that
+directory. It only installs the skill itself; install the `mini-circus`
+binary separately (above) if it isn't already on `PATH`.
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `MINI_CIRCUS_SKILL_REF` | `main` | Git ref to install from |
+| `MINI_CIRCUS_SKILL_DIR` | `.claude/skills` | Target skills directory |
+
 ## Quickstart
 
 ```bash
@@ -275,7 +302,10 @@ src/
   models.rs   Board, Task, Comment, TaskDetail (task + its comments)
   store.rs    all queries, including task-claim atomicity; unit tests live here
   output.rs   builds markdown and renders it via termimad, or prints --json
-migrations/   embedded at compile time via sqlx::migrate!
+migrations/    embedded at compile time via sqlx::migrate!
+skill/         Claude Code skill (SKILL.md + reference.md) - see above
+install.sh        installs the binary
+install-skill.sh  installs skill/ into another project's .claude/skills/
 ```
 
 ### Releasing
