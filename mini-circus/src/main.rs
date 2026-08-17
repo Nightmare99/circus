@@ -5,7 +5,8 @@ mod output;
 mod store;
 
 use clap::Parser;
-use cli::{BoardCommand, Cli, Command, TaskCommand};
+use cli::{BoardCommand, Cli, Command, CommentCommand, TaskCommand};
+use models::TaskDetail;
 use store::{NewTask, TaskFilter, TaskPatch};
 
 #[tokio::main]
@@ -36,24 +37,20 @@ async fn run_board_command(
     match command {
         BoardCommand::Create { name, description } => {
             let board = store::create_board(pool, &name, description.as_deref()).await?;
-            output::print_board(&board, json);
+            output::show_board(&board, json);
         }
         BoardCommand::List => {
             let boards = store::list_boards(pool).await?;
-            output::print_boards(&boards, json);
+            output::show_boards(&boards, json);
         }
         BoardCommand::Show { board } => {
             let board = store::resolve_board(pool, &board).await?;
-            output::print_board(&board, json);
+            output::show_board(&board, json);
         }
         BoardCommand::Delete { board } => {
             let board = store::resolve_board(pool, &board).await?;
             store::delete_board(pool, board.id).await?;
-            if json {
-                output::print_json(&serde_json::json!({ "deleted": true, "id": board.id }));
-            } else {
-                println!("Deleted board #{} ({})", board.id, board.name);
-            }
+            output::confirm_deleted("board", board.id, json);
         }
     }
     Ok(())
@@ -84,7 +81,7 @@ async fn run_task_command(
                 },
             )
             .await?;
-            output::print_task(&task, json);
+            output::show_task(&task, json);
         }
         TaskCommand::List {
             board,
@@ -93,11 +90,12 @@ async fn run_task_command(
         } => {
             let board = store::resolve_board(pool, &board).await?;
             let tasks = store::list_tasks(pool, board.id, &TaskFilter { status, assignee }).await?;
-            output::print_tasks(&tasks, json);
+            output::show_tasks(&tasks, json);
         }
         TaskCommand::Show { id } => {
             let task = store::get_task(pool, id).await?;
-            output::print_task(&task, json);
+            let comments = store::list_comments(pool, id).await?;
+            output::show_task_detail(&TaskDetail { task, comments }, json);
         }
         TaskCommand::Update {
             id,
@@ -116,7 +114,7 @@ async fn run_task_command(
                 },
             )
             .await?;
-            output::print_task(&task, json);
+            output::show_task(&task, json);
         }
         TaskCommand::Status { id, status } => {
             let task = store::update_task(
@@ -128,7 +126,7 @@ async fn run_task_command(
                 },
             )
             .await?;
-            output::print_task(&task, json);
+            output::show_task(&task, json);
         }
         TaskCommand::Assign { id, assignee } => {
             let task = store::update_task(
@@ -140,7 +138,7 @@ async fn run_task_command(
                 },
             )
             .await?;
-            output::print_task(&task, json);
+            output::show_task(&task, json);
         }
         TaskCommand::Unassign { id } => {
             let task = store::update_task(
@@ -152,12 +150,12 @@ async fn run_task_command(
                 },
             )
             .await?;
-            output::print_task(&task, json);
+            output::show_task(&task, json);
         }
         TaskCommand::Claim { board, assignee } => {
             let board = store::resolve_board(pool, &board).await?;
             let task = store::claim_next_task(pool, board.id, &assignee).await?;
-            output::print_optional_task(
+            output::show_optional_task(
                 task.as_ref(),
                 json,
                 "No unassigned pending tasks on this board.",
@@ -165,11 +163,30 @@ async fn run_task_command(
         }
         TaskCommand::Delete { id } => {
             store::delete_task(pool, id).await?;
-            if json {
-                output::print_json(&serde_json::json!({ "deleted": true, "id": id }));
-            } else {
-                println!("Deleted task #{id}");
-            }
+            output::confirm_deleted("task", id, json);
+        }
+        TaskCommand::Comment { command } => run_comment_command(pool, command, json).await?,
+    }
+    Ok(())
+}
+
+async fn run_comment_command(
+    pool: &sqlx::SqlitePool,
+    command: CommentCommand,
+    json: bool,
+) -> anyhow::Result<()> {
+    match command {
+        CommentCommand::Add { task, body, author } => {
+            let comment = store::create_comment(pool, task, &author, &body).await?;
+            output::show_comment(&comment, json);
+        }
+        CommentCommand::List { task } => {
+            let comments = store::list_comments(pool, task).await?;
+            output::show_comments(&comments, json);
+        }
+        CommentCommand::Delete { id } => {
+            store::delete_comment(pool, id).await?;
+            output::confirm_deleted("comment", id, json);
         }
     }
     Ok(())

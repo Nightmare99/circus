@@ -1,9 +1,11 @@
 # mini-circus
 
 A minimal task board with no accounts and no permissions. Anyone with access
-to the database file can create boards and tasks and assign them to any
-(free-text) name. It's a single self-contained binary backed by one SQLite
-file — no server, no setup step, no config beyond an optional path override.
+to the database file can create boards and tasks, assign them to any
+(free-text) name, and leave comments. It's a single self-contained binary
+backed by one SQLite file — no server, no setup step, no config beyond an
+optional path override. Human-facing output renders as styled markdown in
+the terminal; pass `--json` anywhere you need to parse it instead.
 
 It shares its task-status vocabulary (`TaskStatus`, `Priority`) with
 [circus](../README.md), the full multi-tenant issue tracker this repo also
@@ -88,6 +90,9 @@ mini-circus --json task list --board backlog
 - **Assignee** — an arbitrary string. There's no user table to validate it
   against, so typos create a new "assignee" silently. That's the tradeoff
   for having no accounts at all.
+- **Comment** — belongs to exactly one task, has a free-text `author` (same
+  tradeoff as assignee) and a body. Ordered by creation time. `task show`
+  includes a task's comments; nothing else does.
 
 ## Command reference
 
@@ -134,6 +139,18 @@ mini-circus task claim --board <board> <name>
 mini-circus task delete <id>
 ```
 
+### Comments
+
+```
+mini-circus task comment add <task-id> <body> --author <name>
+mini-circus task comment list <task-id>
+mini-circus task comment delete <id>
+```
+
+`task show <id>` already includes a task's comments, so `comment list` is
+mainly useful if you want just the comments (e.g. piping `--json` output
+into something else) without the rest of the task.
+
 **`task claim`** is the one worth understanding: it atomically finds the
 oldest unassigned task on a board with status `pending`, assigns it to
 `<name>`, and sets its status to `in_progress` — all in a single SQL
@@ -153,6 +170,21 @@ Everything else (`assign`, `status`, `update`) is a plain, non-atomic write —
 fine for a human or a single controller managing the board, but `claim` is
 what you want when several callers are pulling from the same board at once.
 
+## Terminal output
+
+Without `--json`, every command renders through [termimad](https://docs.rs/termimad)
+as styled markdown instead of plain aligned columns: lists render as bordered,
+auto-sized tables; a task's status/priority/assignee line is bold; comments
+render as blockquotes; empty states render in italics. It reads its skin from
+your terminal's color support, and reuses circus's accent color for headers
+and bold text so the two tools feel like one family. User-supplied text
+(titles, descriptions, comment bodies, names) is escaped before being handed
+to the markdown renderer, so a title containing `*` or `` ` `` shows up as
+that literal character rather than being interpreted as formatting.
+
+This is display-only — it's not meant to be piped anywhere. Use `--json` for
+anything that needs to be parsed.
+
 ## JSON output
 
 Pass `--json` on any command for machine-readable output. A task:
@@ -171,6 +203,32 @@ Pass `--json` on any command for machine-readable output. A task:
 }
 ```
 
+`task show <id>` returns that same shape with a `comments` array merged in
+(a task detail, not a plain task):
+
+```json
+{
+  "id": 1,
+  "board_id": 1,
+  "title": "Write release notes",
+  "description": null,
+  "status": "in_progress",
+  "priority": "high",
+  "assignee": "alice",
+  "created_at": "2026-08-16T19:13:16.012880Z",
+  "updated_at": "2026-08-16T19:20:00.000000Z",
+  "comments": [
+    {
+      "id": 1,
+      "task_id": 1,
+      "author": "alice",
+      "body": "Starting on this now.",
+      "created_at": "2026-08-16T19:20:00.000000Z"
+    }
+  ]
+}
+```
+
 A board:
 
 ```json
@@ -183,11 +241,11 @@ A board:
 }
 ```
 
-`task list` / `board list` print a JSON array of the above. `task claim`
-prints a single task object, or `null` if nothing was available.
-Timestamps are RFC 3339 UTC. Non-zero exit code on any error, with the
-message on stderr — nothing prints to stdout on failure, so `--json` output
-is always either a valid JSON value or absent.
+`task list` / `board list` / `task comment list` print a JSON array of the
+above. `task claim` prints a single task object, or `null` if nothing was
+available. Timestamps are RFC 3339 UTC. Non-zero exit code on any error, with
+the message on stderr — nothing prints to stdout on failure, so `--json`
+output is always either a valid JSON value or absent.
 
 ## Storage
 
@@ -214,9 +272,9 @@ src/
   main.rs     CLI entry point, dispatches to store.rs
   cli.rs      clap argument definitions
   db.rs       SQLite connection + migration setup
-  models.rs   Board, Task
+  models.rs   Board, Task, Comment, TaskDetail (task + its comments)
   store.rs    all queries, including task-claim atomicity; unit tests live here
-  output.rs   human-readable vs --json rendering
+  output.rs   builds markdown and renders it via termimad, or prints --json
 migrations/   embedded at compile time via sqlx::migrate!
 ```
 

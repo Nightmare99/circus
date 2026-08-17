@@ -1,10 +1,11 @@
-use crate::models::{Board, Task};
+use crate::models::{Board, Comment, Task};
 use chrono::Utc;
 use common::{Priority, TaskStatus};
 use sqlx::SqlitePool;
 
 const TASK_COLUMNS: &str =
     "id, board_id, title, description, status, priority, assignee, created_at, updated_at";
+const COMMENT_COLUMNS: &str = "id, task_id, author, body, created_at";
 
 #[derive(Debug, thiserror::Error)]
 pub enum StoreError {
@@ -12,6 +13,8 @@ pub enum StoreError {
     BoardNotFound(String),
     #[error("task {0} not found")]
     TaskNotFound(i64),
+    #[error("comment {0} not found")]
+    CommentNotFound(i64),
     #[error("a board named {0:?} already exists")]
     BoardNameTaken(String),
     #[error(transparent)]
@@ -254,6 +257,50 @@ pub async fn delete_task(pool: &SqlitePool, id: i64) -> Result<(), StoreError> {
     Ok(())
 }
 
+// ---- comments ------------------------------------------------------------
+
+pub async fn create_comment(
+    pool: &SqlitePool,
+    task_id: i64,
+    author: &str,
+    body: &str,
+) -> Result<Comment, StoreError> {
+    // Check the task exists first so this fails with a clean TaskNotFound
+    // rather than an opaque foreign-key-constraint database error.
+    get_task(pool, task_id).await?;
+
+    let query = format!(
+        "INSERT INTO comments (task_id, author, body, created_at) VALUES (?, ?, ?, ?)
+         RETURNING {COMMENT_COLUMNS}"
+    );
+    Ok(sqlx::query_as::<_, Comment>(&query)
+        .bind(task_id)
+        .bind(author)
+        .bind(body)
+        .bind(Utc::now())
+        .fetch_one(pool)
+        .await?)
+}
+
+pub async fn list_comments(pool: &SqlitePool, task_id: i64) -> Result<Vec<Comment>, StoreError> {
+    let query = format!("SELECT {COMMENT_COLUMNS} FROM comments WHERE task_id = ? ORDER BY id");
+    Ok(sqlx::query_as::<_, Comment>(&query)
+        .bind(task_id)
+        .fetch_all(pool)
+        .await?)
+}
+
+pub async fn delete_comment(pool: &SqlitePool, id: i64) -> Result<(), StoreError> {
+    let result = sqlx::query("DELETE FROM comments WHERE id = ?")
+        .bind(id)
+        .execute(pool)
+        .await?;
+    if result.rows_affected() == 0 {
+        return Err(StoreError::CommentNotFound(id));
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -475,5 +522,74 @@ mod tests {
             get_task(&pool, task.id).await,
             Err(StoreError::TaskNotFound(_))
         ));
+    }
+
+    #[tokio::test]
+    async fn comments_are_ordered_and_scoped_to_their_task() {
+        let pool = test_pool().await;
+        let board = create_board(&pool, "b", None).await.unwrap();
+        let task = create_task(
+            &pool,
+            NewTask {
+                board_id: board.id,
+                title: "t",
+                description: None,
+                priority: Priority::Medium,
+                assignee: None,
+            },
+        )
+        .await
+        .unwrap();
+
+        create_comment(&pool, task.id, "alice", "first")
+            .await
+            .unwrap();
+        create_comment(&pool, task.id, "bob", "second")
+            .await
+            .unwrap();
+
+        let comments = list_comments(&pool, task.id).await.unwrap();
+        assert_eq!(comments.len(), 2);
+        assert_eq!(comments[0].body, "first");
+        assert_eq!(comments[1].body, "second");
+    }
+
+    #[tokio::test]
+    async fn commenting_on_a_missing_task_fails_cleanly() {
+        let pool = test_pool().await;
+        assert!(matches!(
+            create_comment(&pool, 999, "alice", "hi").await,
+            Err(StoreError::TaskNotFound(999))
+        ));
+    }
+
+    #[tokio::test]
+    async fn deleting_a_task_cascades_to_its_comments() {
+        let pool = test_pool().await;
+        let board = create_board(&pool, "b", None).await.unwrap();
+        let task = create_task(
+            &pool,
+            NewTask {
+                board_id: board.id,
+                title: "t",
+                description: None,
+                priority: Priority::Medium,
+                assignee: None,
+            },
+        )
+        .await
+        .unwrap();
+        create_comment(&pool, task.id, "alice", "hi").await.unwrap();
+
+        delete_task(&pool, task.id).await.unwrap();
+
+        // the comment's FK is ON DELETE CASCADE, so it should be gone too -
+        // check directly since list_comments on a missing task just returns empty.
+        let orphaned: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM comments WHERE task_id = ?")
+            .bind(task.id)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+        assert_eq!(orphaned.0, 0);
     }
 }

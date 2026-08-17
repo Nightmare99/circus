@@ -123,6 +123,31 @@ pub enum TaskCommand {
     },
     /// Delete a task
     Delete { id: i64 },
+    /// Add, list, or remove comments on a task
+    Comment {
+        #[command(subcommand)]
+        command: CommentCommand,
+    },
+}
+
+#[derive(Subcommand)]
+pub enum CommentCommand {
+    /// Add a comment to a task
+    Add {
+        /// Task id
+        task: i64,
+        body: String,
+        /// Free-text name to attribute the comment to
+        #[arg(long)]
+        author: String,
+    },
+    /// List comments on a task
+    List {
+        /// Task id
+        task: i64,
+    },
+    /// Delete a comment
+    Delete { id: i64 },
 }
 
 fn parse_status(s: &str) -> Result<TaskStatus, ParseEnumError> {

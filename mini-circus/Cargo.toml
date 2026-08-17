@@ -21,3 +21,4 @@ sqlx.workspace = true
 anyhow.workspace = true
 thiserror.workspace = true
 clap.workspace = true
+termimad = "0.35.1"
