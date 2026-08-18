@@ -47,12 +47,14 @@ Backend listens on `:8080`, frontend dev server on `:5173`.
 ## mini-circus
 
 A minimal task board with no accounts and no permissions: anyone with access to
-the database file can create boards and tasks and assign them to any (free-text)
-name. Built for coordinating work across multiple independent processes reading
-and writing the same board concurrently — every mutation is a single atomic SQL
-statement, so concurrent writers can't corrupt or double-claim state. It shares
-`TaskStatus`/`Priority` with circus via the `common` crate, but nothing else:
-no orgs, no users, no RBAC, no web server. Just a SQLite file and a CLI.
+the database file can create boards and tasks, assign them to any (free-text)
+name, and comment. Built for coordinating work across multiple independent
+processes reading and writing the same board concurrently — `task claim` is a
+single atomic SQL statement, so concurrent callers pulling work off the same
+board can't double-claim a task. It shares `TaskStatus`/`Priority` with circus
+via the `common` crate, but nothing else: no orgs, no users, no RBAC. An
+optional, read-only web dashboard (`mini-circus serve`) shows boards updating
+live; the CLI and its SQLite file remain the source of truth either way.
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/Nightmare99/circus/main/mini-circus/install.sh | sh

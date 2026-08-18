@@ -22,3 +22,5 @@ anyhow.workspace = true
 thiserror.workspace = true
 clap.workspace = true
 termimad = "0.35.1"
+axum = { version = "0.8.9", features = ["ws"] }
+notify = "8.2.0"

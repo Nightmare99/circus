@@ -3,6 +3,7 @@ mod db;
 mod models;
 mod output;
 mod store;
+mod web;
 
 use clap::Parser;
 use cli::{BoardCommand, Cli, Command, CommentCommand, TaskCommand};
@@ -26,6 +27,7 @@ async fn run(cli: Cli) -> anyhow::Result<()> {
     match cli.command {
         Command::Board { command } => run_board_command(&pool, command, json).await,
         Command::Task { command } => run_task_command(&pool, command, json).await,
+        Command::Serve { host, port } => web::run(pool, db_path, host, port).await,
     }
 }
 

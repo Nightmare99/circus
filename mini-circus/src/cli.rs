@@ -38,6 +38,15 @@ pub enum Command {
         #[command(subcommand)]
         command: TaskCommand,
     },
+    /// Serve a live, read-only web dashboard over the board database
+    Serve {
+        /// Address to bind to
+        #[arg(long, default_value = "127.0.0.1")]
+        host: String,
+        /// Port to listen on
+        #[arg(long, default_value_t = 7878)]
+        port: u16,
+    },
 }
 
 #[derive(Subcommand)]

@@ -10,9 +10,12 @@ the terminal; pass `--json` anywhere you need to parse it instead.
 It shares its task-status vocabulary (`TaskStatus`, `Priority`) with
 [circus](../README.md), the full multi-tenant issue tracker this repo also
 contains, via the `common` crate — but nothing else. No orgs, no users, no
-RBAC, no web server. If you want those, use circus. mini-circus is for
-coordinating work between multiple independent processes that need a shared,
-concurrency-safe list of tasks and don't need anyone to log in.
+RBAC. If you want those, use circus. mini-circus is for coordinating work
+between multiple independent processes that need a shared, concurrency-safe
+list of tasks and don't need anyone to log in. A web server is available
+(`mini-circus serve`) but strictly optional and read-only — see
+[below](#web-dashboard); the CLI and its SQLite file are the source of truth
+either way.
 
 ## Install
 
@@ -199,6 +202,44 @@ Everything else (`assign`, `status`, `update`) is a plain, non-atomic write —
 fine for a human or a single controller managing the board, but `claim` is
 what you want when several callers are pulling from the same board at once.
 
+## Web dashboard
+
+```bash
+mini-circus serve [--host 127.0.0.1] [--port 7878]
+```
+
+Starts a read-only web dashboard at `http://127.0.0.1:7878` over the same
+database file every other command uses (respects `--db` / `$MINI_CIRCUS_DB`
+as usual). It's a single embedded HTML page — no build step, no external
+requests, nothing to install — showing every board as a tab and each one's
+tasks as the same four-column layout (`pending` / `in_progress` / `blocked` /
+`completed`) as circus's own board view. Click a task for its full
+description and comment history.
+
+**Updates in real time**, including edits made by other `mini-circus`
+processes running elsewhere. There's a wrinkle worth understanding: every
+CLI mutation is a separate, short-lived process, so unlike a normal web app
+there's no single running server that sees a write happen and can broadcast
+it directly. Instead `serve` watches the database file's directory for
+changes at the OS level (via [`notify`](https://docs.rs/notify), whichever
+mechanism the platform provides — inotify, FSEvents, etc.) and pushes a
+"something changed" ping over a WebSocket to connected browsers, which then
+refetch over the plain JSON API below. A background poll every 8s serves as
+a fallback in case a filesystem event is ever missed. Purely observational -
+running `serve` doesn't change how any CLI command behaves, and closing it
+doesn't affect the database.
+
+This is intentionally read-only: no create/edit/claim controls in the UI.
+Use the CLI for that; `serve` is for watching, not driving.
+
+The same JSON is available directly, if you want it outside the dashboard:
+
+```
+GET /api/boards
+GET /api/boards/<board>/tasks
+GET /api/tasks/<id>          # includes comments, same shape as `task show --json`
+```
+
 ## Terminal output
 
 Without `--json`, every command renders through [termimad](https://docs.rs/termimad)
@@ -304,6 +345,9 @@ src/
   models.rs   Board, Task, Comment, TaskDetail (task + its comments)
   store.rs    all queries, including task-claim atomicity; unit tests live here
   output.rs   builds markdown and renders it via termimad, or prints --json
+  web.rs      `mini-circus serve`: read-only JSON API + WebSocket over a
+              file-watcher, serves web/dashboard.html
+  web/dashboard.html   the dashboard itself - single file, no build step
 migrations/    embedded at compile time via sqlx::migrate!
 skill/         agent skill (SKILL.md + reference.md) - see above
 install.sh        installs the binary

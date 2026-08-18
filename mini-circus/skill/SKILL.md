@@ -56,12 +56,62 @@ form. Errors always go to stderr with a non-zero exit code regardless of
 mini-circus board create <name> --description "<what this board is for>"
 ```
 
-**Add work to it:**
+**Add work to it - always with `--assignee`, and write the description
+like a spec, not a label.**
+
+Pass `--assignee <name>` on every `task create` - decide who's doing the
+work at creation time rather than leaving it to be picked up later. An
+unassigned task is invisible to `task list --assignee <name>` and easy to
+lose track of; a named owner from the start is not. Only omit `--assignee`
+when you're deliberately building a shared pool of interchangeable work for
+`task claim` to hand out (see below) - that's the one intentional exception,
+not the default.
+
+Whoever picks this up is a *separate process or session with none of your
+context*. The description is the only information transfer that happens -
+if it's not in there, the claimant doesn't know it. `"Fix the auth bug"` or
+`"Add user endpoint"` is not a task description; it's a title that happens
+to be longer. Write every task as if handing it to someone who will start
+cold:
+
+- **Exactly what to do** - which function/endpoint/component, current
+  behavior vs. required behavior, not just the symptom or the goal.
+- **The contract, for anything with an interface.** For a backend/API
+  task: method + path, full request shape, full response shape (every
+  field, its type, which are optional), status codes and error response
+  shapes, and which existing types/models it touches or must reuse rather
+  than duplicate. For a frontend/component task: props/inputs, the states
+  it must handle, exact behavior per interaction. For a CLI/library task:
+  function signature, inputs/outputs, error cases. No interface, no task -
+  underspecifying it here is where rework comes from.
+- **Where** - file paths or module names, if already known, so the
+  claimant isn't searching from zero.
+- **Acceptance criteria** - concretely: a request/response that should
+  round-trip, a test that should pass, an observable behavior. Not "should
+  work."
+- **Constraints** - things to leave alone, conventions to follow,
+  dependencies on other tasks.
 
 ```bash
-mini-circus --json task create --board <name> "<title>" \
-  --description "<details>" --priority low|medium|high|urgent
+mini-circus --json task create --board api "Add GET /users/:id endpoint" \
+  --priority high --assignee backend-worker \
+  --description "Add to backend/crates/api/src/users/handlers.rs.
+Contract:
+  Request: path param id (uuid)
+  200: { \"id\": uuid, \"email\": string, \"display_name\": string, \"created_at\": rfc3339 }
+  404: { \"error\": \"user not found\" } if id doesn't exist
+  400: { \"error\": \"invalid id\" } if id isn't a valid uuid
+Reuse the existing UserRow struct in backend/crates/db/src/models.rs - don't
+add fields to the response beyond what's listed above.
+Acceptance: GET with an existing user id returns 200 with the shape above;
+a random uuid returns 404; a non-uuid string returns 400."
 ```
+
+That's the depth to aim for regardless of task type - a frontend, docs, or
+infra task needs the same rigor for whatever *its* interface is (props,
+config keys, CLI flags, file formats), not just backend work. More worked
+examples (frontend/component, bug-fix) are in
+[reference.md](reference.md#writing-task-descriptions).
 
 Task ids are global integers, not per-board - `task show`, `task assign`,
 `task status`, etc. never need `--board`, the id alone is enough.
@@ -74,9 +124,11 @@ mini-circus --json task list --board <name> --status pending
 mini-circus --json task list --board <name> --assignee <name>
 ```
 
-**Pick up the next available task** - this is the one to reach for when
-picking up work from a shared board rather than working a specific
-already-known task id. It atomically finds the oldest unassigned `pending`
+**Pick up the next available task** - only relevant for tasks that were
+deliberately left unassigned (the one intentional exception to "always set
+`--assignee`" above: a shared pool of interchangeable work, created without
+`--assignee` on purpose because you don't know or don't care in advance who
+picks each one up). It atomically finds the oldest unassigned `pending`
 task, assigns it to `<name>`, and marks it `in_progress`, in one SQL
 statement - safe to call from several processes against the same board at
 once; each call gets a different task, or `null` if the board is drained:
@@ -106,6 +158,8 @@ mini-circus --json task show <id>
 
 ## Things worth knowing
 
+- Default to `--assignee` on every `task create`. Leave it off only when
+  you're intentionally creating unclaimed pool work for `task claim`.
 - Statuses are fixed: `pending`, `in_progress`, `blocked`, `completed`. No
   custom columns.
 - Assignees and comment authors are arbitrary strings - there's no account

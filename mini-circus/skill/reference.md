@@ -55,6 +55,61 @@ mini-circus task comment list <task-id>
 mini-circus task comment delete <id>
 ```
 
+## Writing task descriptions
+
+See [SKILL.md](SKILL.md) for the rule (write for a claimant with zero
+shared context: exact scope, the interface/contract, file locations,
+acceptance criteria, constraints) and a backend/API example. Two more
+worked examples, same principle applied to a different kind of interface:
+
+**Frontend/component task - too terse:**
+```bash
+mini-circus task create --board web "Add loading spinner"
+```
+
+**Frontend/component task - detailed enough to hand off cold:**
+```bash
+mini-circus --json task create --board web "Add loading state to TaskList" \
+  --assignee frontend-worker \
+  --description "TaskList component (frontend/src/components/TaskList.tsx)
+currently renders nothing while its data is fetching, so the screen is
+blank for ~1s on load.
+Contract:
+  New prop: isLoading: boolean (already returned by the useTasks() hook
+  in frontend/src/hooks/useTasks.ts as .isLoading - just wire it through,
+  don't add new fetch logic).
+  When isLoading is true, render the existing <Spinner size=\"md\" />
+  component (frontend/src/components/Spinner.tsx) centered in place of
+  the task list, and render nothing else in that state.
+  When isLoading is false, current rendering is unchanged.
+Acceptance: throttle network in devtools, load the page, see the spinner
+until data arrives, then the task list - no layout shift, no console
+errors."
+```
+
+**Bug-fix task - too terse:**
+```bash
+mini-circus task create --board api "Fix login bug"
+```
+
+**Bug-fix task - detailed enough to hand off cold:**
+```bash
+mini-circus --json task create --board api "Login returns 500 for emails with a +" \
+  --priority urgent --assignee backend-worker \
+  --description "Repro: POST /api/auth/login with email
+  \"user+test@example.com\" and a correct password returns 500. Same
+  password with the plain email (no +) works fine.
+Expected: 200 with the normal session response shape (see
+  POST /api/auth/login in backend/crates/api/src/auth/handlers.rs) for any
+  RFC 5321-valid email, + included.
+Suspected cause (unconfirmed): the email normalization step in
+  backend/crates/api/src/auth/handlers.rs likely mishandles + in
+  to_lowercase()/trim() chain - check there first, but verify against the
+  actual code rather than assuming.
+Acceptance: the repro request above returns 200; add a test case for a
+  +-containing email alongside the existing login tests."
+```
+
 ## JSON shapes
 
 **Board:**
